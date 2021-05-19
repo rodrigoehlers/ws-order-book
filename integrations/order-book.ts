@@ -1,4 +1,10 @@
-import { getSubscriptionCancelRequestPayload, getSubscriptionRequestPayload, Grouping } from '../utils/ws-api';
+import {
+  getSubscriptionCancelRequestPayload,
+  getSubscriptionRequestPayload,
+  Grouping,
+  SortingDirection,
+} from '../utils/ws-api';
+import { handleNewEntries, transformRawEntriesToEntries } from '../utils/order-book';
 
 export type UpdateFunction = (bids: Bids, asks: Asks) => void;
 
@@ -15,16 +21,20 @@ export interface OrderBook {
 }
 
 type Snapshot = {
-  asks: Asks;
-  bids: Asks;
+  asks: RawAsks;
+  bids: RawAsks;
 };
 
 type Delta = {
-  asks: Asks;
-  bids: Bids;
+  asks: RawAsks;
+  bids: RawBids;
 };
 
-export type Entry = [number, number];
+export type RawEntry = [number, number];
+export type RawAsks = RawEntry[];
+export type RawBids = RawEntry[];
+
+export type Entry = [number, number, number];
 export type Asks = Entry[];
 export type Bids = Entry[];
 
@@ -65,24 +75,16 @@ class CryptoFacilitiesOrderBook implements OrderBook {
     this.open();
   }
 
-  private static updateEntries(entries: Entry[], entry: Entry) {
-    const [id, amount] = entry;
-
-    const index = entries.findIndex((bid) => bid[0] === id);
-    if (index === -1 && amount !== 0) {
-      entries.push(entry);
-      return;
-    }
-
-    if (amount === 0) {
-      entries.splice(index, 1);
-    } else {
-      entries[index] = entry;
-    }
-  }
-
   private static onWebSocketOpen() {
     console.log('WebSocket is now open.');
+  }
+
+  private static onWebSocketError(event: ErrorEvent) {
+    console.error('WebSocket encountered an error.', event);
+  }
+
+  private static onWebSocketClose() {
+    console.log('Websocket is now closed.');
   }
 
   private onWebSocketMessage(event: MessageEvent) {
@@ -119,24 +121,17 @@ class CryptoFacilitiesOrderBook implements OrderBook {
     }
   }
 
-  private onWebSocketError(event: ErrorEvent) {
-    console.log(event);
-  }
-
-  private onWebSocketClose(event: CloseEvent) {
-    console.log('Websocket is now closed.');
-  }
-
   private onSnapshot(snapshot: Snapshot) {
-    this.asks = snapshot.asks;
-    this.bids = snapshot.bids;
+    this.asks = transformRawEntriesToEntries(snapshot.asks, SortingDirection.ASKS);
+    this.bids = transformRawEntriesToEntries(snapshot.bids, SortingDirection.BIDS);
+    this.updateListeners();
   }
 
   private onDelta(delta: Delta) {
     const { bids, asks } = delta;
 
-    bids.forEach((entry) => CryptoFacilitiesOrderBook.updateEntries(this.bids, entry));
-    asks.forEach((entry) => CryptoFacilitiesOrderBook.updateEntries(this.asks, entry));
+    this.bids = handleNewEntries(this.bids, bids, SortingDirection.BIDS);
+    this.asks = handleNewEntries(this.asks, asks, SortingDirection.ASKS);
 
     this.updateListeners();
   }
@@ -149,7 +144,6 @@ class CryptoFacilitiesOrderBook implements OrderBook {
 
   addUpdateListener(callback: UpdateFunction) {
     this.callbacks = [...this.callbacks, callback];
-
     return () => this.removeUpdateListener(callback);
   }
 
@@ -160,6 +154,17 @@ class CryptoFacilitiesOrderBook implements OrderBook {
     this.callbacks.splice(index, 1);
   }
 
+  open() {
+    const rs = this.ws?.readyState;
+    if (!rs || rs === 2 || rs === 3) {
+      this.ws = new WebSocket(`wss://${this.endpoint}`);
+      this.ws.onopen = CryptoFacilitiesOrderBook.onWebSocketOpen;
+      this.ws.onmessage = this.onWebSocketMessage;
+      this.ws.onerror = CryptoFacilitiesOrderBook.onWebSocketError;
+      this.ws.onclose = CryptoFacilitiesOrderBook.onWebSocketClose;
+    }
+  }
+
   updateGrouping(grouping: Grouping) {
     const cancelPayload = getSubscriptionCancelRequestPayload(this.currentFeedId, this.productIds);
     this.ws.send(JSON.stringify(cancelPayload));
@@ -168,17 +173,6 @@ class CryptoFacilitiesOrderBook implements OrderBook {
 
     const nextSubscriptionPayload = getSubscriptionRequestPayload(this.currentFeedId, this.productIds);
     this.ws.send(JSON.stringify(nextSubscriptionPayload));
-  }
-
-  open() {
-    const rs = this.ws?.readyState;
-    if (!rs || rs === 2 || rs === 3) {
-      this.ws = new WebSocket(`wss://${this.endpoint}`);
-      this.ws.onopen = CryptoFacilitiesOrderBook.onWebSocketOpen;
-      this.ws.onmessage = this.onWebSocketMessage;
-      this.ws.onerror = this.onWebSocketError;
-      this.ws.onclose = this.onWebSocketClose;
-    }
   }
 
   close() {
