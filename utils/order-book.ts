@@ -16,25 +16,35 @@ export const updateEntryTotalsFromLastCorrectIndex = (
     return entries;
   }
 
-  let updatedEntries: Entry[] = [];
-
   // Retrieve the real last correct total or 0.
   const [, , lastCorrectTotal] = entries[lastCorrectIndex] ?? [0, 0, 0];
   let currentTotal = lastCorrectTotal;
 
   // A `lastCorrectIndex` of 0/length of entries means we should redo the whole thing.
-  const startingPoint = SortingDirection.ASKS
-    ? Math.max(lastCorrectIndex, 0)
-    : Math.min(lastCorrectIndex, entries.length - 1);
+  const startingPoint =
+    direction === SortingDirection.ASKS
+      ? Math.max(lastCorrectIndex + 1, 0)
+      : Math.min(lastCorrectIndex - 1, entries.length - 1);
 
-  for (let i = startingPoint; i < entries.length; i++) {
+  let updatedEntries: Entry[] =
+    direction === SortingDirection.ASKS ? entries.slice(0, startingPoint) : entries.slice(startingPoint + 1);
+
+  for (
+    let i = startingPoint;
+    direction === SortingDirection.ASKS ? i < entries.length : i > -1;
+    direction === SortingDirection.ASKS ? (i += 1) : (i -= 1)
+  ) {
     const current = entries[i];
 
     const [id, amount] = current;
     currentTotal += amount;
 
     const currentWithTotal: Entry = [id, amount, currentTotal];
-    updatedEntries = [...updatedEntries, currentWithTotal];
+    if (direction === SortingDirection.ASKS) {
+      updatedEntries = [...updatedEntries, currentWithTotal];
+    } else {
+      updatedEntries = [currentWithTotal, ...updatedEntries];
+    }
   }
 
   return updatedEntries;
