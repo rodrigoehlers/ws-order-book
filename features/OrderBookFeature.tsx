@@ -1,5 +1,5 @@
 import { ChangeEvent, useEffect, useRef, useState } from 'react';
-import CryptoFacilitiesOrderBook, { Asks, Bids, OrderBook, UpdateFunction } from '../integrations/order-book';
+import CryptoFacilitiesOrderBook, { OrderBook, UpdateFunction, Bids, Asks } from '../integrations/order-book';
 import { Grouping } from '../utils/ws-api';
 
 const WSS_ENDPOINT = process.env.NEXT_PUBLIC_WSS_ENDPOINT;
@@ -68,24 +68,30 @@ const OrderBookFeature = () => {
         })}
       </select>
       <div className="flex">
-        <ul>
-          {bids.map((bid) => {
-            return (
-              <li key={bid[0]}>
-                {bid[0]} - {bid[1]}
-              </li>
-            );
-          })}
-        </ul>
-        <ul>
-          {asks.map((ask) => {
-            return (
-              <li key={ask[0]}>
-                {ask[0]} - {ask[1]}
-              </li>
-            );
-          })}
-        </ul>
+        <div>
+          Bids
+          <ul>
+            {bids.map((bid) => {
+              return (
+                <li key={bid[0]}>
+                  {bid[0]} - {bid[1]} - {bid[2]}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+        <div>
+          Asks
+          <ul>
+            {asks.map((ask) => {
+              return (
+                <li key={ask[0]}>
+                  {ask[0]} - {ask[1]} - {ask[2]}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </div>
     </div>
   );
