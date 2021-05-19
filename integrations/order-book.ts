@@ -1,4 +1,4 @@
-import { getSubscriptionRequestPayload } from '../utils/ws-api';
+import { getSubscriptionCancelRequestPayload, getSubscriptionRequestPayload, Grouping } from '../utils/ws-api';
 
 export type UpdateFunction = (bids: Bids, asks: Asks) => void;
 
@@ -7,8 +7,10 @@ export interface OrderBook {
   callbacks: UpdateFunction[];
   asks: Asks;
   bids: Bids;
+  open();
   addUpdateListener(callback: UpdateFunction): Function;
   removeUpdateListener(callback: UpdateFunction);
+  updateGrouping(grouping: Grouping);
   close();
 }
 
@@ -26,19 +28,26 @@ export type Entry = [number, number];
 export type Asks = Entry[];
 export type Bids = Entry[];
 
-const FEED_ID = 'book_ui_1';
-
 class CryptoFacilitiesOrderBook implements OrderBook {
-  ws: WebSocket;
+  endpoint: string;
+  currentFeedId: string;
+  productIds: string | string[];
+
   callbacks: UpdateFunction[];
-  isSubscribed: boolean;
   asks: Asks;
   bids: Bids;
 
-  constructor(endpoint: string) {
+  isSubscribed: boolean;
+  ws: WebSocket;
+
+  constructor(endpoint: string, productIds: string | string[], grouping: Grouping = Grouping.POINT_FIVE) {
+    this.open = this.open.bind(this);
     this.onWebSocketMessage = this.onWebSocketMessage.bind(this);
+    this.close = this.close.bind(this);
+
     this.onSnapshot = this.onSnapshot.bind(this);
     this.onDelta = this.onDelta.bind(this);
+
     this.addUpdateListener = this.addUpdateListener.bind(this);
     this.removeUpdateListener = this.removeUpdateListener.bind(this);
     this.updateListeners = this.updateListeners.bind(this);
@@ -49,11 +58,11 @@ class CryptoFacilitiesOrderBook implements OrderBook {
     this.asks = [];
     this.bids = [];
 
-    this.ws = new WebSocket(`wss://${endpoint}`);
-    this.ws.onopen = CryptoFacilitiesOrderBook.onWebSocketOpen;
-    this.ws.onmessage = this.onWebSocketMessage;
-    this.ws.onerror = this.onWebSocketError;
-    this.ws.onclose = this.onWebSocketClose;
+    this.endpoint = endpoint;
+    this.currentFeedId = `book_ui_${grouping}`;
+    this.productIds = productIds;
+
+    this.open();
   }
 
   private static updateEntries(entries: Entry[], entry: Entry) {
@@ -85,7 +94,7 @@ class CryptoFacilitiesOrderBook implements OrderBook {
       switch (data.event) {
         case 'info':
           if (!this.isSubscribed) {
-            const requestPayload = getSubscriptionRequestPayload(FEED_ID, 'PI_XBTUSD');
+            const requestPayload = getSubscriptionRequestPayload(this.currentFeedId, this.productIds);
             this.ws.send(JSON.stringify(requestPayload));
           }
           break;
@@ -93,13 +102,17 @@ class CryptoFacilitiesOrderBook implements OrderBook {
           this.isSubscribed = true;
           console.log('WebSocket is subscribed.');
           break;
+        case 'unsubscribed':
+          this.isSubscribed = false;
+          console.log('WebSocket is unsubscribed.');
+          break;
       }
     } else {
       switch (data.feed) {
-        case FEED_ID:
+        case this.currentFeedId:
           this.onDelta(data as Delta);
           break;
-        case `${FEED_ID}_snapshot`:
+        case `${this.currentFeedId}_snapshot`:
           this.onSnapshot(data as Snapshot);
           break;
       }
@@ -111,7 +124,7 @@ class CryptoFacilitiesOrderBook implements OrderBook {
   }
 
   private onWebSocketClose(event: CloseEvent) {
-    console.log(event);
+    console.log('Websocket is now closed.');
   }
 
   private onSnapshot(snapshot: Snapshot) {
@@ -147,8 +160,37 @@ class CryptoFacilitiesOrderBook implements OrderBook {
     this.callbacks.splice(index, 1);
   }
 
+  updateGrouping(grouping: Grouping) {
+    const cancelPayload = getSubscriptionCancelRequestPayload(this.currentFeedId, this.productIds);
+    this.ws.send(JSON.stringify(cancelPayload));
+
+    this.currentFeedId = `book_ui_${grouping}`;
+
+    const nextSubscriptionPayload = getSubscriptionRequestPayload(this.currentFeedId, this.productIds);
+    this.ws.send(JSON.stringify(nextSubscriptionPayload));
+  }
+
+  open() {
+    const rs = this.ws?.readyState;
+    if (!rs || rs === 2 || rs === 3) {
+      this.ws = new WebSocket(`wss://${this.endpoint}`);
+      this.ws.onopen = CryptoFacilitiesOrderBook.onWebSocketOpen;
+      this.ws.onmessage = this.onWebSocketMessage;
+      this.ws.onerror = this.onWebSocketError;
+      this.ws.onclose = this.onWebSocketClose;
+    }
+  }
+
   close() {
-    this.ws.close();
+    const rs = this.ws?.readyState;
+    if (rs === 0 || rs === 1) {
+      const cancelPayload = getSubscriptionCancelRequestPayload(this.currentFeedId, this.productIds);
+      this.ws.send(JSON.stringify(cancelPayload));
+
+      this.isSubscribed = false;
+
+      this.ws.close();
+    }
   }
 }
 
