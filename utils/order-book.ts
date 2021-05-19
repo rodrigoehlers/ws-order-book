@@ -3,12 +3,16 @@ import { SortingDirection } from './ws-api';
 
 export const transformRawEntriesToEntries = (entries: RawEntry[], direction: SortingDirection): Entry[] => {
   // We start at -1 to signal we have to 'redo' the whole thing.
-  return updateEntryTotalsFromLastCorrectIndex(entries as unknown as Entry[], direction, -1);
+  return updateEntryTotalsFromLastCorrectIndex(
+    entries as unknown as Entry[],
+    direction,
+    direction === SortingDirection.ASKS ? -1 : entries.length
+  );
 };
 
 export const updateEntryTotalsFromLastCorrectIndex = (
   entries: Entry[],
-  direction,
+  direction: SortingDirection,
   lastCorrectIndex: number = -1
 ): Entry[] => {
   // No need to update if the last correct index already is the last/first item.
@@ -121,13 +125,17 @@ export const handleNewEntry = (
 export const handleNewEntries = (entries: Entry[], nextEntries: RawEntry[], direction: SortingDirection): Entry[] => {
   let clone = [...entries];
 
-  let lowestUpdateIndex = 0;
+  let lastCorrectIndex = direction === SortingDirection.ASKS ? 0 : entries.length - 1;
   for (const entry of nextEntries) {
     const [nextClone, updateIndex] = handleNewEntry(clone, entry, direction);
+
     clone = nextClone;
-    lowestUpdateIndex = updateIndex < lowestUpdateIndex ? updateIndex : lowestUpdateIndex;
+    lastCorrectIndex =
+      direction === SortingDirection.ASKS
+        ? Math.min(updateIndex, lastCorrectIndex)
+        : Math.max(updateIndex, lastCorrectIndex);
   }
 
   // We decide to do this here since doing it on each insertion would possibly mean lots of overwritten calculations.
-  return updateEntryTotalsFromLastCorrectIndex(clone, lowestUpdateIndex);
+  return updateEntryTotalsFromLastCorrectIndex(clone, direction, lastCorrectIndex);
 };

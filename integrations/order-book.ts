@@ -128,10 +128,10 @@ class CryptoFacilitiesOrderBook implements OrderBook {
   }
 
   private onDelta(delta: Delta) {
-    const { bids, asks } = delta;
+    const { asks, bids } = delta;
 
-    this.bids = handleNewEntries(this.bids, bids, SortingDirection.BIDS);
     this.asks = handleNewEntries(this.asks, asks, SortingDirection.ASKS);
+    this.bids = handleNewEntries(this.bids, bids, SortingDirection.BIDS);
 
     this.updateListeners();
   }
