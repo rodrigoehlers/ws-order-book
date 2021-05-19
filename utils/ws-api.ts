@@ -13,6 +13,11 @@ export enum Grouping {
   TWO_THOUSAND_FIVE_HUNDRED = '5000',
 }
 
+export enum SortingDirection {
+  BIDS = 'desc',
+  ASKS = 'asc',
+}
+
 export const getSubscriptionRequestPayload = (feedId: string, productIds: string | string[]) => {
   return { event: 'subscribe', feed: feedId, product_ids: Array.isArray(productIds) ? productIds : [productIds] };
 };
