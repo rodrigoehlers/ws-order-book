@@ -99,7 +99,7 @@ const OrderBookFeature = () => {
     ? 'Establishing connection...'
     : isLive
     ? 'Live'
-    : 'An error occured, try reloading the page.';
+    : 'An error occurred, try reloading the page.';
   const statusHeaderLevel: StatusHeaderProps['level'] = isInitialOrConnecting ? 'warn' : isLive ? 'success' : 'error';
 
   // Bids and Asks
@@ -125,7 +125,7 @@ const OrderBookFeature = () => {
 
         <div className="flex flex-col sm:flex-row justify-center items-center sm:space-x-4 sm:space-y-0 space-y-4">
           <div className="flex flex-col items-center 2xl:w-1/4 lg:w-2/5 sm:w-1/2 w-11/12 space-y-2">
-            <h3 className="sm:text-2xl font-bold leading-7 text-gray-900">Asks</h3>
+            <h3 className="sm:text-2xl text-xl font-bold leading-7 text-gray-900">Bids</h3>
             <EntryTable
               renderEntry={([id, amount, total], index) => {
                 return (
@@ -138,11 +138,11 @@ const OrderBookFeature = () => {
                   </tr>
                 );
               }}
-              entries={asks}
+              entries={bids}
             />
           </div>
           <div className="flex flex-col items-center 2xl:w-1/4 lg:w-2/5 sm:w-1/2 w-11/12 space-y-2">
-            <h3 className="sm:text-2xl text-xl font-bold leading-7 text-gray-900">Bids</h3>
+            <h3 className="sm:text-2xl font-bold leading-7 text-gray-900">Asks</h3>
             <EntryTable
               renderEntry={([id, amount, total], index) => {
                 return (
@@ -155,7 +155,7 @@ const OrderBookFeature = () => {
                   </tr>
                 );
               }}
-              entries={bids}
+              entries={asks}
             />
           </div>
         </div>
