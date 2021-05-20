@@ -8,7 +8,7 @@
 
 - Maybe even make use of the interface based approach and try implementing the view with a completely different WebSocket based order book API.
 
-- Find a more elegant solution for the controls.
+- Find a more elegant solution for the controls and save the latest settings to the browser storage or provide them as query parameters.
 - Make the number of lines in the tables adjustable instead of fixed to 7.
 
 #### 2. What would you have done differently if you knew this page was going to get thousands of views per second vs per week?
