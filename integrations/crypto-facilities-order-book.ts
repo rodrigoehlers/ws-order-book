@@ -61,7 +61,7 @@ class CryptoFacilitiesOrderBook implements WebSocketOrderBook<CryptoFacilitiesDa
 
     this.endpoint = endpoint;
     this.currentFeedId = `book_ui_${grouping}`;
-    this.productIds = productIds;
+    this.productIds = Array.isArray(productIds) ? productIds[0] : productIds;
 
     this.open();
   }
