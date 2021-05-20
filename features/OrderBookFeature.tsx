@@ -103,7 +103,7 @@ const OrderBookFeature = () => {
   return (
     <>
       <StatusHeader label={statusHeaderLabel} level={statusHeaderLevel} pulse={isInitialOrConnecting || isLive} />
-      <div className="container mx-auto mt-8 space-y-8">
+      <div className="container mx-auto py-8 space-y-8">
         <div className="flex flex-col items-center space-y-2">
           <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">WS Order Book</h2>
           <p className="text-gray-700">Realtime order book using a WebSocket.</p>
