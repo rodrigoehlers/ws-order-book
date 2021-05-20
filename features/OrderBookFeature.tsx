@@ -42,7 +42,7 @@ const OrderBookFeature = () => {
 
   useEffect(() => {
     // TODO: Handle `WSS_ENDPOINT` not defined.
-    const orderBook = new CryptoFacilitiesOrderBook(WSS_ENDPOINT, PRODUCT_IDS);
+    const orderBook = new CryptoFacilitiesOrderBook(WSS_ENDPOINT, PRODUCT_IDS, option.value);
     orderBookRef.current = orderBook;
 
     const remove = orderBook.addUpdateListener(updateBidsAndAsks);
@@ -127,12 +127,12 @@ const OrderBookFeature = () => {
 
       <div className="flex space-x-4">
         <div>
-          <h3 className="font-bold leading-7 text-gray-900">Bids</h3>
-          <EntryTable entries={bids} />
-        </div>
-        <div>
           <h3 className="font-bold leading-7 text-gray-900">Asks</h3>
           <EntryTable entries={asks} />
+        </div>
+        <div>
+          <h3 className="font-bold leading-7 text-gray-900">Bids</h3>
+          <EntryTable entries={bids} />
         </div>
       </div>
     </div>
