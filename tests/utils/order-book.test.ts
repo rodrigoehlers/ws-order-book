@@ -1,6 +1,6 @@
 import { SortingDirection } from '../../utils/ws-api';
-import { handleNewEntry, updateEntryTotalsFromLastCorrectIndex } from '../../utils/order-book';
-import { Asks, Bids } from '../../integrations/order-book';
+import { handleNewEntry, updateEntryTotalsFromLastCorrectIndex } from '../../utils/crypto-facilities-order-book';
+import { Asks, Bids, RawAsks, RawBids } from '../../integrations/crypto-facilities-order-book';
 
 const asks: Asks = [
   [1, 1, 1],
@@ -27,6 +27,33 @@ const bids: Bids = [
   [2, 2, 3],
   [1, 1, 1],
 ];
+
+const rawAsks: RawAsks = [
+  [1, 1],
+  [2, 2],
+  [3, 3],
+  [4, 4],
+  [5, 5],
+  [6, 6],
+  [7, 7],
+  [8, 8],
+  [9, 9],
+  [10, 10],
+];
+
+const rawBids: RawBids = [
+  [10, 10],
+  [9, 9],
+  [8, 8],
+  [7, 7],
+  [6, 6],
+  [5, 5],
+  [4, 4],
+  [3, 3],
+  [2, 2],
+  [1, 1],
+];
+
 describe('utils/order-book.ts', () => {
   describe('updateEntryTotalsFromLastCorrectIndex', () => {
     describe('asks', () => {
@@ -371,16 +398,72 @@ describe('utils/order-book.ts', () => {
       });
 
       describe('update', () => {
-        it.skip('correctly updates an item at 0 and returns its index + 1', () => {});
-        it.skip('correctly updates an item at middle of array and returns its index + 1', () => {});
-        it.skip('correctly updates the last item and returns its index + 1', () => {});
+        it('correctly updates an item at 0 and returns its index + 1', () => {
+          const [nextAsks, lastCorrectIndex] = handleNewEntry(bidsClone, [10, 20], direction);
+          expect(nextAsks.length).toBe(10);
+          expect(nextAsks[0]).toStrictEqual([10, 20, 0]);
+          expect(nextAsks[1]).toStrictEqual([9, 9, 45]);
+          expect(lastCorrectIndex).toBe(1);
+        });
+
+        it('correctly updates an item at middle of array and returns its index + 1', () => {
+          const [nextAsks, lastCorrectIndex] = handleNewEntry(bidsClone, [7, 20], direction);
+          expect(nextAsks.length).toBe(10);
+          expect(nextAsks[3]).toStrictEqual([7, 20, 0]);
+          expect(nextAsks[4]).toStrictEqual([6, 6, 21]);
+          expect(lastCorrectIndex).toBe(4);
+        });
+
+        it('correctly updates the last item and returns its index + 1', () => {
+          const [nextAsks, lastCorrectIndex] = handleNewEntry(bidsClone, [1, 20], direction);
+          expect(nextAsks.length).toBe(10);
+          expect(nextAsks[nextAsks.length - 2]).toStrictEqual([2, 2, 3]);
+          expect(nextAsks[nextAsks.length - 1]).toStrictEqual([1, 20, 0]);
+          expect(lastCorrectIndex).toBe(nextAsks.length);
+        });
       });
 
       describe('insert', () => {
-        it.skip('correctly inserts an item at 0 and returns the insertion point index + 1', () => {});
-        it.skip('correctly inserts an item at the middle of the array and returns the insertion point index + 1', () => {});
-        it.skip('correctly inserts an item at the end of the array and returns the insertion point index + 1', () => {});
+        it('correctly inserts an item at 0 and returns the insertion point index + 1', () => {
+          const [nextAsks, lastCorrectIndex] = handleNewEntry(bidsClone, [11, 20], direction);
+          expect(nextAsks.length).toBe(11);
+          expect(nextAsks[0]).toStrictEqual([11, 20, 0]);
+          expect(nextAsks[1]).toStrictEqual([10, 10, 55]);
+          expect(lastCorrectIndex).toBe(1);
+        });
+
+        it('correctly inserts an item at the middle of the array and returns the insertion point index + 1', () => {
+          const [nextAsks, lastCorrectIndex] = handleNewEntry(bidsClone, [6.5, 20], direction);
+          expect(nextAsks.length).toBe(11);
+          expect(nextAsks[4]).toStrictEqual([6.5, 20, 0]);
+          expect(nextAsks[5]).toStrictEqual([6, 6, 21]);
+          expect(lastCorrectIndex).toBe(5);
+        });
+
+        it('correctly inserts an item at the end of the array and returns the insertion point index + 1', () => {
+          const [nextAsks, lastCorrectIndex] = handleNewEntry(bidsClone, [0.5, 20], direction);
+          expect(nextAsks.length).toBe(11);
+          expect(nextAsks[nextAsks.length - 2]).toStrictEqual([1, 1, 1]);
+          expect(nextAsks[nextAsks.length - 1]).toStrictEqual([0.5, 20, 0]);
+          expect(lastCorrectIndex).toBe(nextAsks.length);
+        });
       });
     });
   });
+
+  // describe('transformRawEntriesToEntries', () => {
+  //   describe('asks', () => {
+  //     it('correctly transforms RawAsks to Asks', () => {
+  //       const transformedRawAsks = transformRawEntriesToEntries(rawAsks, SortingDirection.ASKS);
+  //       expect(transformedRawAsks).toStrictEqual(asks);
+  //     });
+  //   });
+  //
+  //   describe('bids', () => {
+  //     it('correctly transforms RawBids to Bids', () => {
+  //       const transformedRawBids = transformRawEntriesToEntries(rawBids, SortingDirection.BIDS);
+  //       expect(transformedRawBids).toStrictEqual(bids);
+  //     });
+  //   });
+  // });
 });

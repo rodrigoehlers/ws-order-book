@@ -1,14 +1,5 @@
-import { Entry, RawEntry } from '../integrations/order-book';
+import { Entry, RawEntry } from '../integrations/crypto-facilities-order-book';
 import { SortingDirection } from './ws-api';
-
-export const transformRawEntriesToEntries = (entries: RawEntry[], direction: SortingDirection): Entry[] => {
-  // We start at -1 to signal we have to 'redo' the whole thing.
-  return updateEntryTotalsFromLastCorrectIndex(
-    entries as unknown as Entry[],
-    direction,
-    direction === SortingDirection.ASKS ? -1 : entries.length
-  );
-};
 
 export const updateEntryTotalsFromLastCorrectIndex = (
   entries: Entry[],

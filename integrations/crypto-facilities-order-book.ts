@@ -4,69 +4,60 @@ import {
   Grouping,
   SortingDirection,
 } from '../utils/ws-api';
-import { handleNewEntries, transformRawEntriesToEntries } from '../utils/order-book';
+import { handleNewEntries } from '../utils/crypto-facilities-order-book';
+import { ConnectionStatus, StatusUpdateFunction, UpdateFunction, WebSocketOrderBook } from './web-socket-order-book';
 
-export type UpdateFunction = (bids: Bids, asks: Asks) => void;
-
-export interface OrderBook {
-  ws: WebSocket;
-  callbacks: UpdateFunction[];
-  asks: Asks;
-  bids: Bids;
-  open();
-  addUpdateListener(callback: UpdateFunction): Function;
-  removeUpdateListener(callback: UpdateFunction);
-  updateGrouping(grouping: Grouping);
-  close();
-}
-
-type Snapshot = {
+export interface CryptoFacilitiesData {
   asks: RawAsks;
   bids: RawAsks;
-};
+}
 
-type Delta = {
-  asks: RawAsks;
-  bids: RawBids;
-};
+export interface ParsedCryptoFacilitiesData {
+  asks: Asks;
+  bids: Bids;
+}
 
-export type RawEntry = [number, number];
+export type RawEntry = [price: number, amount: number];
 export type RawAsks = RawEntry[];
 export type RawBids = RawEntry[];
 
-export type Entry = [number, number, number];
+export type Entry = [price: number, amount: number, total: number];
 export type Asks = Entry[];
 export type Bids = Entry[];
 
-class CryptoFacilitiesOrderBook implements OrderBook {
+class CryptoFacilitiesOrderBook implements WebSocketOrderBook<CryptoFacilitiesData, ParsedCryptoFacilitiesData> {
+  callbacks: UpdateFunction<ParsedCryptoFacilitiesData>[] = [];
+  statusCallbacks: StatusUpdateFunction[] = [];
+
+  connectionStatus: ConnectionStatus = 'initial';
+
+  asks: Asks = [];
+  bids: Bids = [];
+
+  isSubscribed: boolean = false;
+
   endpoint: string;
   currentFeedId: string;
   productIds: string | string[];
 
-  callbacks: UpdateFunction[];
-  asks: Asks;
-  bids: Bids;
-
-  isSubscribed: boolean;
   ws: WebSocket;
 
   constructor(endpoint: string, productIds: string | string[], grouping: Grouping = Grouping.POINT_FIVE) {
     this.open = this.open.bind(this);
+    this.onWebSocketOpen = this.onWebSocketOpen.bind(this);
     this.onWebSocketMessage = this.onWebSocketMessage.bind(this);
+    this.onWebSocketClose = this.onWebSocketClose.bind(this);
+    this.onWebSocketError = this.onWebSocketError.bind(this);
     this.close = this.close.bind(this);
 
-    this.onSnapshot = this.onSnapshot.bind(this);
-    this.onDelta = this.onDelta.bind(this);
+    this.onData = this.onData.bind(this);
 
     this.addUpdateListener = this.addUpdateListener.bind(this);
     this.removeUpdateListener = this.removeUpdateListener.bind(this);
+    this.addStatusUpdateListener = this.addStatusUpdateListener.bind(this);
+    this.removeStatusUpdateListener = this.removeStatusUpdateListener.bind(this);
     this.updateListeners = this.updateListeners.bind(this);
-
-    this.callbacks = [];
-    this.isSubscribed = false;
-
-    this.asks = [];
-    this.bids = [];
+    this.updateStatusListeners = this.updateStatusListeners.bind(this);
 
     this.endpoint = endpoint;
     this.currentFeedId = `book_ui_${grouping}`;
@@ -75,21 +66,35 @@ class CryptoFacilitiesOrderBook implements OrderBook {
     this.open();
   }
 
-  private static onWebSocketOpen() {
-    console.log('WebSocket is now open.');
+  private onWebSocketOpen() {
+    this.connectionStatus = 'live';
+    this.updateStatusListeners();
+    console.log('Websocket is now open.');
   }
 
-  private static onWebSocketError(event: ErrorEvent) {
+  private onWebSocketError(event: ErrorEvent) {
+    this.connectionStatus = 'error';
+    this.updateStatusListeners();
     console.error('WebSocket encountered an error.', event);
   }
 
-  private static onWebSocketClose() {
+  private onWebSocketClose() {
+    if (this.connectionStatus !== 'error') {
+      this.connectionStatus = 'connecting';
+      this.updateStatusListeners();
+    }
     console.log('Websocket is now closed.');
   }
 
   private onWebSocketMessage(event: MessageEvent) {
-    // TODO: Error handling for corrupt data.
-    const data = JSON.parse(event.data);
+    let data;
+    try {
+      data = JSON.parse(event.data);
+    } catch (error) {
+      this.connectionStatus = 'error';
+      console.error('Parsing data failed.', error);
+      return;
+    }
 
     const isEvent = data.event;
     if (isEvent) {
@@ -112,56 +117,51 @@ class CryptoFacilitiesOrderBook implements OrderBook {
     } else {
       switch (data.feed) {
         case this.currentFeedId:
-          this.onDelta(data as Delta);
+          this.onData(data as CryptoFacilitiesData);
           break;
         case `${this.currentFeedId}_snapshot`:
-          this.onSnapshot(data as Snapshot);
+          // TODO: Is this reset really necessary?
+          this.asks = [];
+          this.bids = [];
+          this.onData(data as CryptoFacilitiesData);
           break;
       }
     }
   }
 
-  private onSnapshot(snapshot: Snapshot) {
-    this.asks = transformRawEntriesToEntries(snapshot.asks, SortingDirection.ASKS);
-    this.bids = transformRawEntriesToEntries(snapshot.bids, SortingDirection.BIDS);
-    this.updateListeners();
-  }
-
-  private onDelta(delta: Delta) {
-    const { asks, bids } = delta;
-
+  onData(data: CryptoFacilitiesData) {
+    const { asks, bids } = data;
     this.asks = handleNewEntries(this.asks, asks, SortingDirection.ASKS);
     this.bids = handleNewEntries(this.bids, bids, SortingDirection.BIDS);
-
     this.updateListeners();
   }
 
-  private updateListeners() {
-    this.callbacks.forEach((callback) => {
-      callback(this.bids, this.asks);
-    });
-  }
-
-  addUpdateListener(callback: UpdateFunction) {
+  addUpdateListener(callback: UpdateFunction<ParsedCryptoFacilitiesData>) {
     this.callbacks = [...this.callbacks, callback];
     return () => this.removeUpdateListener(callback);
   }
 
-  removeUpdateListener(callback: UpdateFunction) {
+  removeUpdateListener(callback: UpdateFunction<ParsedCryptoFacilitiesData>): void {
     const index = this.callbacks.findIndex((item) => item === callback);
-    if (index === -1) return;
+    if (index !== -1) {
+      this.callbacks.splice(index, 1);
+    }
+  }
 
-    this.callbacks.splice(index, 1);
+  private updateListeners() {
+    this.callbacks.forEach((callback) => {
+      callback({ asks: this.asks, bids: this.bids });
+    });
   }
 
   open() {
     const rs = this.ws?.readyState;
     if (!rs || rs === 2 || rs === 3) {
       this.ws = new WebSocket(`wss://${this.endpoint}`);
-      this.ws.onopen = CryptoFacilitiesOrderBook.onWebSocketOpen;
+      this.ws.onopen = this.onWebSocketOpen;
       this.ws.onmessage = this.onWebSocketMessage;
-      this.ws.onerror = CryptoFacilitiesOrderBook.onWebSocketError;
-      this.ws.onclose = CryptoFacilitiesOrderBook.onWebSocketClose;
+      this.ws.onerror = this.onWebSocketError;
+      this.ws.onclose = this.onWebSocketClose;
     }
   }
 
@@ -185,6 +185,24 @@ class CryptoFacilitiesOrderBook implements OrderBook {
 
       this.ws.close();
     }
+  }
+
+  addStatusUpdateListener(callback: StatusUpdateFunction): Function {
+    this.statusCallbacks = [...this.statusCallbacks, callback];
+    return () => this.removeStatusUpdateListener(callback);
+  }
+
+  removeStatusUpdateListener(callback: StatusUpdateFunction): void {
+    const index = this.statusCallbacks.findIndex((item) => item === callback);
+    if (index !== -1) {
+      this.statusCallbacks.splice(index, 1);
+    }
+  }
+
+  private updateStatusListeners() {
+    this.statusCallbacks.forEach((callback) => {
+      callback(this.connectionStatus);
+    });
   }
 }
 
