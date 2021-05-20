@@ -1,13 +1,9 @@
 import { Entry, RawEntry } from '../integrations/crypto-facilities-order-book';
 import { SortingDirection } from './ws-api';
 
-export const updateEntryTotalsFromLastCorrectIndex = (
-  entries: Entry[],
-  direction: SortingDirection,
-  lastCorrectIndex: number = -1
-): Entry[] => {
+export const updateEntryTotalsFromLastCorrectIndex = (entries: Entry[], lastCorrectIndex: number = -1): Entry[] => {
   // No need to update if the last correct index already is the last/first item.
-  if (direction === SortingDirection.ASKS ? lastCorrectIndex === entries.length - 1 : lastCorrectIndex === 0) {
+  if (lastCorrectIndex === entries.length - 1) {
     return entries;
   }
 
@@ -16,30 +12,19 @@ export const updateEntryTotalsFromLastCorrectIndex = (
   let currentTotal = lastCorrectTotal;
 
   // A `lastCorrectIndex` of 0/length of entries means we should redo the whole thing.
-  const startingPoint =
-    direction === SortingDirection.ASKS
-      ? Math.max(lastCorrectIndex + 1, 0)
-      : Math.min(lastCorrectIndex - 1, entries.length - 1);
+  const startingPoint = Math.max(lastCorrectIndex + 1, 0);
 
-  let updatedEntries: Entry[] =
-    direction === SortingDirection.ASKS ? entries.slice(0, startingPoint) : entries.slice(startingPoint + 1);
+  let updatedEntries: Entry[] = entries.slice(0, startingPoint);
 
-  for (
-    let i = startingPoint;
-    direction === SortingDirection.ASKS ? i < entries.length : i > -1;
-    direction === SortingDirection.ASKS ? (i += 1) : (i -= 1)
-  ) {
+  for (let i = startingPoint; i < entries.length; i += 1) {
     const current = entries[i];
 
     const [id, amount] = current;
     currentTotal += amount;
 
     const currentWithTotal: Entry = [id, amount, currentTotal];
-    if (direction === SortingDirection.ASKS) {
-      updatedEntries = [...updatedEntries, currentWithTotal];
-    } else {
-      updatedEntries = [currentWithTotal, ...updatedEntries];
-    }
+
+    updatedEntries = [...updatedEntries, currentWithTotal];
   }
 
   return updatedEntries;
@@ -69,15 +54,13 @@ export const handleNewEntry = (
   const shouldDelete = existingIndex !== -1 && amount === 0;
   if (shouldDelete) {
     clone.splice(existingIndex, 1);
-    const lastCorrectIndex = direction === SortingDirection.ASKS ? existingIndex - 1 : existingIndex;
-    return [clone, lastCorrectIndex];
+    return [clone, existingIndex - 1];
   }
 
   const shouldUpdate = existingIndex !== -1 && amount !== 0;
   if (shouldUpdate) {
     clone[existingIndex] = [...rawEntry, 0];
-    const lastCorrectIndex = direction === SortingDirection.ASKS ? existingIndex - 1 : existingIndex + 1;
-    return [clone, lastCorrectIndex];
+    return [clone, existingIndex - 1];
   }
 
   const shouldInsert = existingIndex === -1 && amount !== 0;
@@ -92,15 +75,13 @@ export const handleNewEntry = (
       }
 
       clone.splice(i, 0, [...rawEntry, 0]);
-      const lastCorrectIndex = direction === SortingDirection.ASKS ? i - 1 : i + 1;
-      return [clone, lastCorrectIndex];
+      return [clone, i - 1];
     }
   }
 
   // We ignore the entry by returning the clone and a last correct index that is too high/low for the update function to
   // run.
-  const lastCorrectIndex = direction === SortingDirection.ASKS ? clone.length - 1 : 0;
-  return [clone, lastCorrectIndex];
+  return [clone, clone.length - 1];
 };
 
 /**
@@ -121,12 +102,9 @@ export const handleNewEntries = (entries: Entry[], nextEntries: RawEntry[], dire
     const [nextClone, updateIndex] = handleNewEntry(clone, entry, direction);
 
     clone = nextClone;
-    lastCorrectIndex =
-      direction === SortingDirection.ASKS
-        ? Math.min(updateIndex, lastCorrectIndex)
-        : Math.max(updateIndex, lastCorrectIndex);
+    lastCorrectIndex = Math.min(updateIndex, lastCorrectIndex);
   }
 
   // We decide to do this here since doing it on each insertion would possibly mean lots of overwritten calculations.
-  return updateEntryTotalsFromLastCorrectIndex(clone, direction, lastCorrectIndex);
+  return updateEntryTotalsFromLastCorrectIndex(clone, lastCorrectIndex);
 };
