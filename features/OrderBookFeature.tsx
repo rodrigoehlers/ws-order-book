@@ -50,21 +50,27 @@ const OrderBookFeature = () => {
   };
 
   const [data, setData] = useState<ParsedCryptoFacilitiesData>({ asks: [], bids: [] });
-  const [status, setStatus] = useState<ConnectionStatus>('initial');
+  const [status, setStatus] = useState<ConnectionStatus>(WSS_ENDPOINT ? 'initial' : 'error');
 
   useEffect(() => {
-    // TODO: Handle `WSS_ENDPOINT` not defined.
-    const orderBook = new CryptoFacilitiesOrderBook(WSS_ENDPOINT, PRODUCT_IDS, options[groupingIndex].value);
-    orderBookRef.current = orderBook;
+    if (WSS_ENDPOINT) {
+      // TODO: Handle `WSS_ENDPOINT` not defined.
+      const orderBook = new CryptoFacilitiesOrderBook(WSS_ENDPOINT, PRODUCT_IDS, options[groupingIndex].value);
+      orderBookRef.current = orderBook;
 
-    const removeUpdateListener = orderBook.addUpdateListener(setData);
-    const removeStatusUpdateListener = orderBook.addStatusUpdateListener(setStatus);
+      const removeUpdateListener = orderBook.addUpdateListener(setData);
+      const removeStatusUpdateListener = orderBook.addStatusUpdateListener(setStatus);
 
-    return () => {
-      removeUpdateListener();
-      removeStatusUpdateListener();
-      orderBook.close();
-    };
+      return () => {
+        removeUpdateListener();
+        removeStatusUpdateListener();
+        orderBook.close();
+      };
+    } else {
+      console.error(
+        'An environment variable named `NEXT_PUBLIC_WSS_ENDPOINT` containing the WebSocket endpoint without protocol must be set.'
+      );
+    }
   }, []);
 
   useEffect(() => {

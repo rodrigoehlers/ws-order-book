@@ -120,7 +120,6 @@ class CryptoFacilitiesOrderBook implements WebSocketOrderBook<CryptoFacilitiesDa
           this.onData(data as CryptoFacilitiesData);
           break;
         case `${this.currentFeedId}_snapshot`:
-          // TODO: Is this reset really necessary?
           this.asks = [];
           this.bids = [];
           this.onData(data as CryptoFacilitiesData);
