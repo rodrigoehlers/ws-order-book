@@ -1,12 +1,13 @@
 # Questions
 #### 1. What would you add to your solution if you had more time?
 - Add more unit tests to increase code testing coverage.
-- Add and integrations tests since the application currently has none.
+- Add integration tests since the application currently has none.
 
+- Add an option to specify another WebSocket endpoint in the UI rather than in an environment variable.
 - Add an option to specify one or multiple `productId`'s in the UI rather than in an environment variable.
 - Add actual support for viewing multiple `productId`'s in the UI.
 
-- Maybe even make use of the interface based approach and try implementing the view with a completely different WebSocket based order book API.
+- Maybe even make use of the interface-based approach and try implementing the view with a completely different WebSocket-based order book API.
 
 - Find a more elegant solution for the controls and save the latest settings to the browser storage or provide them as query parameters.
 - Make the number of lines in the tables adjustable instead of fixed to 7.
@@ -52,7 +53,7 @@ Start by finding what version of the application introduced the performance issu
 Try tracking down the area of where the problematic code could lie by commenting out non-relevant parts of the UI (trial and error approach).
 When found try looking at the code first to see whether there is something obviously wrong.
 
-Last resort would be to use the Chrome Performance Tools which I'm only very little familiar with.
+Last resort would be to use the Chrome Performance Tools with which I'm only very little familiar with.
 I've never found out much about a particular situation when using them. However, this could be due to no actual performance issue existing when I was using the Chrome Performance Tools.
 
 Looking forward to hopefully use them more in the future.
