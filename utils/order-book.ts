@@ -78,7 +78,7 @@ export const handleNewEntry = (
   const shouldDelete = existingIndex !== -1 && amount === 0;
   if (shouldDelete) {
     clone.splice(existingIndex, 1);
-    const lastCorrectIndex = direction === SortingDirection.ASKS ? existingIndex - 1 : existingIndex + 1;
+    const lastCorrectIndex = direction === SortingDirection.ASKS ? existingIndex - 1 : existingIndex;
     return [clone, lastCorrectIndex];
   }
 
@@ -95,13 +95,13 @@ export const handleNewEntry = (
       const current = clone[i];
 
       // We consider the index to be incorrect if the next item is existent (not at end) and still lower/greater.
-      const isNotCorrectIndex = current && (direction === SortingDirection.ASKS ? id < current[0] : id > current[0]);
+      const isNotCorrectIndex = current && (direction === SortingDirection.ASKS ? id > current[0] : id < current[0]);
       if (isNotCorrectIndex) {
         continue;
       }
 
       clone.splice(i, 0, [...rawEntry, 0]);
-      const lastCorrectIndex = direction === SortingDirection.ASKS ? existingIndex - 1 : existingIndex + 1;
+      const lastCorrectIndex = direction === SortingDirection.ASKS ? i - 1 : i + 1;
       return [clone, lastCorrectIndex];
     }
   }
